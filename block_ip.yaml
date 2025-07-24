@@ -1,34 +1,37 @@
 ---
-- name: Block malicious IP using iptables (Host Version)
+- name: Block IP with iptables (Confirmed Working Version)
   hosts: all
   become: yes
   vars:
     malicious_ip: "{{ malicious_ip }}"
+    iptables_path: "/usr/sbin/iptables"  # Sử dụng đường dẫn đã xác nhận
     
   tasks:
-    - name: Block IP in INPUT chain
-      ansible.builtin.command: |
-        /sbin/iptables -I INPUT -s {{ malicious_ip }} -j DROP &&
-        /sbin/iptables -I DOCKER-USER -s {{ malicious_ip }} -j DROP
+    - name: Block IP in INPUT and DOCKER-USER chains
+      ansible.builtin.shell: |
+        {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP && 
+        {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
       args:
         executable: /bin/bash
-      changed_when: true
       notify: save iptables
 
-    - name: Ensure persistent rules
-      ansible.builtin.copy:
-        dest: /etc/iptables/rules.v4
-        content: "{{ lookup('ansible.builtin.file', '/etc/iptables/rules.v4') }}"
-      when: ansible_facts.os_family == 'Debian'
-      notify: reload iptables
+    - name: Ensure rules persistence
+      block:
+        - name: Install iptables-persistent (Debian/Ubuntu)
+          ansible.builtin.apt:
+            name: iptables-persistent
+            state: present
+          when: ansible_facts.os_family == 'Debian'
+
+        - name: Install iptables-services (RHEL/CentOS)
+          ansible.builtin.yum:
+            name: iptables-services
+            state: present
+          when: ansible_facts.os_family == 'RedHat'
+      when: ansible_facts.os_family in ['Debian', 'RedHat']
 
   handlers:
     - name: save iptables
-      ansible.builtin.command: /sbin/iptables-save > /etc/iptables/rules.v4
-      changed_when: true
-
-    - name: reload iptables
-      ansible.builtin.service:
-        name: netfilter-persistent
-        state: reloaded
-      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.shell: "{{ iptables_path }}-save > /etc/iptables/rules.v4"
+      args:
+        executable: /bin/bash
