@@ -1,67 +1,57 @@
 ---
-- name: Universal IP Blocker (Host & Container Compatible)
+- name: Advanced IP Blocker for AWX Container
   hosts: all
   become: yes
   vars:
     malicious_ip: "{{ malicious_ip }}"
-    # Tự động phát hiện đường dẫn iptables
-    iptables_path: "{{ ansible_facts['iptables_path'] | default('/usr/sbin/iptables') }}"
     
   tasks:
-    - name: Detect iptables path
-      ansible.builtin.command: which iptables
-      register: iptables_check
-      changed_when: false
-      ignore_errors: yes
-      
-    - name: Set iptables path fact
+    - name: Detect execution environment
       ansible.builtin.set_fact:
-        iptables_path: "{{ iptables_check.stdout | default('/usr/sbin/iptables') }}"
-      when: iptables_check is not failed
+        is_container: "{{ 'AWX_CONTAINER_HOST' in ansible_facts.env }}"
+        iptables_path: "/usr/sbin/iptables"
+        
+    - name: Block IP on Host
+      ansible.builtin.raw: |
+        {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP
+        {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
+        {{ iptables_path }}-save > /etc/iptables/rules.v4
+      when: not is_container|bool
+      register: host_result
+      changed_when: host_result.rc == 0
 
-    - name: Block IP using best method
-      block:
-        - name: Block via raw module (direct host execution)
-          ansible.builtin.raw: |
-            {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP
-            {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
-            {{ iptables_path }}-save > /etc/iptables/rules.v4
-          register: block_result
-          changed_when: block_result.rc == 0
-          when: ansible_connection == 'local'
-
-        - name: Block via shell (container compatible)
-          ansible.builtin.shell: |
-            {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP && 
-            {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
-          args:
-            executable: /bin/bash
-          when: ansible_connection != 'local'
-          notify: save iptables
-
-    - name: Ensure persistence packages
-      block:
-        - name: Install iptables-persistent (Debian)
-          ansible.builtin.apt:
-            name: iptables-persistent
-            state: present
-          when: ansible_facts.os_family == 'Debian'
-
-        - name: Install iptables-services (RHEL)
-          ansible.builtin.yum:
-            name: iptables-services
-            state: present
-          when: ansible_facts.os_family == 'RedHat'
-      when: ansible_facts.os_family in ['Debian', 'RedHat']
-
-  handlers:
-    - name: save iptables
-      ansible.builtin.shell: "{{ iptables_path }}-save > /etc/iptables/rules.v4"
+    - name: Block IP from Container
+      ansible.builtin.shell: |
+        nsenter --target 1 --net -- {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP
+        nsenter --target 1 --net -- {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
+        nsenter --target 1 --net -- {{ iptables_path }}-save > /etc/iptables/rules.v4
       args:
         executable: /bin/bash
+      when: is_container|bool
+      register: container_result
+      changed_when: container_result.rc == 0
+      environment:
+        PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-    - name: restart iptables
+    - name: Ensure iptables persistence (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: iptables-persistent
+        state: present
+      when: 
+        - ansible_facts.os_family == 'Debian'
+        - not is_container|bool
+
+    - name: Ensure iptables persistence (RHEL/CentOS)
+      ansible.builtin.yum:
+        name: iptables-services
+        state: present
+      when: 
+        - ansible_facts.os_family == 'RedHat'
+        - not is_container|bool
+
+  handlers:
+    - name: restart iptables service
       ansible.builtin.service:
-        name: iptables
+        name: "{{ 'netfilter-persistent' if ansible_facts.os_family == 'Debian' else 'iptables' }}"
         state: restarted
-      when: ansible_facts.os_family == 'RedHat'
+      when: not is_container|bool
