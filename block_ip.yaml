@@ -15,16 +15,14 @@
         action: insert
       notify: save iptables
     
-    - name: Also block in DOCKER-USER chain (for containers)
+    - name: Also block in DOCKER-USER chain
       iptables:
         chain: DOCKER-USER
         source: "{{ malicious_ip }}"
         jump: DROP
-        comment: "Blocked by AWX at {{ ansible_date_time.iso8601 }}"
         action: insert
       notify: save iptables
-    
-    handlers:
+
+  handlers:
     - name: save iptables
-      command: /sbin/iptables-save > /etc/iptables/rules.v4
-      listen: "save iptables"
+      command: iptables-save > /etc/iptables/rules.v4
