@@ -1,7 +1,8 @@
 - name: Manage UFW rules
-  hosts: 192.168.3.160
-  tasks:
-    - name: Block IP using UFW
-      command: sudo ufw deny from {{ ip_address }}
-      delegate_to: 192.168.3.160
-      become: yes
+       hosts: 192.168.3.160
+       gather_facts: false
+       tasks:
+         - name: Block IP using UFW
+           command: sudo ufw deny from {{ ip_address }}
+           delegate_to: 192.168.3.160
+           become: yes
