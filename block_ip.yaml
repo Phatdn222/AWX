@@ -1,29 +1,53 @@
 ---
-- name: Block IP with iptables (Confirmed Working Version)
+- name: Universal IP Blocker (Host & Container Compatible)
   hosts: all
   become: yes
   vars:
     malicious_ip: "{{ malicious_ip }}"
-    iptables_path: "/usr/sbin/iptables"  # Sử dụng đường dẫn đã xác nhận
+    # Tự động phát hiện đường dẫn iptables
+    iptables_path: "{{ ansible_facts['iptables_path'] | default('/usr/sbin/iptables') }}"
     
   tasks:
-    - name: Block IP in INPUT and DOCKER-USER chains
-      ansible.builtin.shell: |
-        {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP && 
-        {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
-      args:
-        executable: /bin/bash
-      notify: save iptables
+    - name: Detect iptables path
+      ansible.builtin.command: which iptables
+      register: iptables_check
+      changed_when: false
+      ignore_errors: yes
+      
+    - name: Set iptables path fact
+      ansible.builtin.set_fact:
+        iptables_path: "{{ iptables_check.stdout | default('/usr/sbin/iptables') }}"
+      when: iptables_check is not failed
 
-    - name: Ensure rules persistence
+    - name: Block IP using best method
       block:
-        - name: Install iptables-persistent (Debian/Ubuntu)
+        - name: Block via raw module (direct host execution)
+          ansible.builtin.raw: |
+            {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP
+            {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
+            {{ iptables_path }}-save > /etc/iptables/rules.v4
+          register: block_result
+          changed_when: block_result.rc == 0
+          when: ansible_connection == 'local'
+
+        - name: Block via shell (container compatible)
+          ansible.builtin.shell: |
+            {{ iptables_path }} -I INPUT -s {{ malicious_ip }} -j DROP && 
+            {{ iptables_path }} -I DOCKER-USER -s {{ malicious_ip }} -j DROP
+          args:
+            executable: /bin/bash
+          when: ansible_connection != 'local'
+          notify: save iptables
+
+    - name: Ensure persistence packages
+      block:
+        - name: Install iptables-persistent (Debian)
           ansible.builtin.apt:
             name: iptables-persistent
             state: present
           when: ansible_facts.os_family == 'Debian'
 
-        - name: Install iptables-services (RHEL/CentOS)
+        - name: Install iptables-services (RHEL)
           ansible.builtin.yum:
             name: iptables-services
             state: present
@@ -35,3 +59,9 @@
       ansible.builtin.shell: "{{ iptables_path }}-save > /etc/iptables/rules.v4"
       args:
         executable: /bin/bash
+
+    - name: restart iptables
+      ansible.builtin.service:
+        name: iptables
+        state: restarted
+      when: ansible_facts.os_family == 'RedHat'
