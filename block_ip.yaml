@@ -1,8 +1,10 @@
 - name: Manage UFW rules
   hosts: 192.168.3.160
   gather_facts: false
+  become: yes
+  become_method: sudo
+  become_user: awx-user
   tasks:
     - name: Block IP using UFW
-      command: sudo ufw deny from {{ ip_address }}
+      command: /usr/sbin/ufw deny from {{ ip_address }}
       delegate_to: 192.168.3.160
-      become: yes
