@@ -1,55 +1,7 @@
----
-- name: 100% Working IP Blocker
-  hosts: all
-  become: yes
-  vars:
-    malicious_ip: "{{ malicious_ip }}"
-    allowed_ranges: ["192.168.1.0/24"]  # Điều chỉnh theo mạng của bạn
-    
+- name: Manage UFW rules
+  hosts: 192.168.1.2
   tasks:
-    - name: Validate IP address
-      ansible.builtin.fail:
-        msg: "IP {{ malicious_ip }} không thuộc dải mạng cho phép"
-      when: malicious_ip.split('.')[0:3] != allowed_ranges[0].split('.')[0:3]
-
-    - name: Block IP (Primary Method)
-      ansible.builtin.shell: |
-        export LD_LIBRARY_PATH="/host_lib:/host_usr_lib:$LD_LIBRARY_PATH"
-        nsenter --target 1 --net -- \
-        /usr/sbin/iptables -I INPUT -s {{ malicious_ip }} -j DROP && \
-        /usr/sbin/iptables -I DOCKER-USER -s {{ malicious_ip }} -j DROP && \
-        /usr/sbin/iptables-save > /etc/iptables/rules.v4
-      args:
-        executable: /bin/bash
-      register: main_result
-      changed_when: main_result.rc == 0
-      ignore_errors: yes
-
-    - name: Block IP (Fallback Method)
-      ansible.builtin.shell: |
-        docker run --rm --privileged --net=host \
-        -v /usr/sbin/iptables:/usr/sbin/iptables \
-        -v /etc/iptables:/etc/iptables \
-        alpine sh -c "
-        apk add iptables --no-cache;
-        iptables -I INPUT -s {{ malicious_ip }} -j DROP;
-        iptables -I DOCKER-USER -s {{ malicious_ip }} -j DROP;
-        iptables-save > /etc/iptables/rules.v4"
-      args:
-        executable: /bin/bash
-      when: main_result is failed
-      register: fallback_result
-      changed_when: fallback_result.rc == 0
-
-    - name: Verify blocking
-      ansible.builtin.command: |
-        /usr/sbin/iptables -L -n | grep {{ malicious_ip }}
-      register: verify
-      changed_when: false
-      failed_when: verify.rc != 0
-
-  handlers:
-    - name: Flush Docker rules
-      ansible.builtin.shell: |
-        docker exec awx_task nsenter --target 1 --net -- /usr/sbin/iptables-restore < /etc/iptables/rules.v4
-      when: ansible_facts.env.AWX_CONTAINER_HOST | default(false)
+    - name: Block IP using UFW
+      command: sudo ufw deny from {{ ip_address }}
+      delegate_to: 192.168.1.2
+      become: yes
