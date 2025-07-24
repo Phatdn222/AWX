@@ -3,7 +3,7 @@
   gather_facts: false
   become: yes
   become_method: sudo
-  become_user: awx-user
+  become_user: root
   tasks:
     - name: Block IP using UFW
       command: /usr/sbin/ufw deny from {{ ip_address }}
