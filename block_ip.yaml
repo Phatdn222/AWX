@@ -14,5 +14,4 @@
       ufw:
         rule: deny
         from_ip: "{{ ip_address }}"
-      when: ufw_status.stdout is not search("DENY IN " ~ ip_address)
       delegate_to: 192.168.3.160
