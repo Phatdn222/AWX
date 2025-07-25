@@ -13,6 +13,12 @@
       when: ip_address is string and ip_address | length > 0
       delegate_to: 192.168.3.160
 
+    - name: Debug IP address
+      debug:
+        msg: "IP address to block: {{ ip_address }}"
+      when: ip_address | length > 0
+      delegate_to: 192.168.3.160
+
     - name: Block IP using UFW
       ufw:
         rule: deny
