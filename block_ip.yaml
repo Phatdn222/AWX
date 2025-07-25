@@ -15,37 +15,33 @@
         msg: "Data variable: {{ data | default('not defined') }}"
       delegate_to: 192.168.3.160
 
-    - name: Store data in temporary variable
+    - name: Store and extract IP
       set_fact:
         temp_ip: "{{ data | default('') }}"
+        ip_address: "{{ data | default('') }}"
       delegate_to: 192.168.3.160
 
     - name: Debug temporary variable
       debug:
-        msg: "Temporary IP: {{ temp_ip }}"
-      delegate_to: 192.168.3.160
-
-    - name: Extract IP from observable
-      set_fact:
-        ip_address: "{{ temp_ip }}"
+        msg: "Temporary IP: {{ hostvars['192.168.3.160'].temp_ip }}"
       delegate_to: 192.168.3.160
 
     - name: Debug set_fact result
       debug:
-        msg: "Set fact result - ip_address: {{ ip_address }}"
+        msg: "Set fact result - ip_address: {{ hostvars['192.168.3.160'].ip_address }}"
       delegate_to: 192.168.3.160
 
     - name: Debug extracted IP
       debug:
-        msg: "IP address to block: {{ ip_address }}"
-      when: ip_address | length > 0
+        msg: "IP address to block: {{ hostvars['192.168.3.160'].ip_address }}"
+      when: hostvars['192.168.3.160'].ip_address | length > 0
       delegate_to: 192.168.3.160
 
     - name: Block IP using UFW
       ufw:
         rule: deny
-        from_ip: "{{ ip_address }}"
-      when: ip_address | length > 0
+        from_ip: "{{ hostvars['192.168.3.160'].ip_address }}"
+      when: hostvars['192.168.3.160'].ip_address | length > 0
       delegate_to: 192.168.3.160
 
     - name: Debug UFW status
