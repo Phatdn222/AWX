@@ -1,7 +1,7 @@
 - name: Manage UFW rules
   hosts: 192.168.3.160
   gather_facts: false
-  become: yes
+  become: true
   become_method: sudo
   become_user: root
   tasks:
@@ -9,46 +9,40 @@
       debug:
         msg: "All variables: {{ vars | to_json }}"
       delegate_to: 192.168.3.160
+      - name: Debug data variable
+        debug:
+          msg: "Data variable: {{ data | default('not defined') }}"
+        delegate_to: 192.160.3.160
 
-    - name: Debug data variable
-      debug:
-        msg: "Data variable: {{ data | default('not defined') }}"
-      delegate_to: 192.168.3.160
+      - name: Store and extract IP
+        set_fact:
+          ip_address: "{{ data | default('') }}"
+        delegate_to: 192.168.3.160
 
-    - name: Store and extract IP
-      set_fact:
-        temp_ip: "{{ data | default('') }}"
-        ip_address: "{{ data | default('') }}"
-      delegate_to: 192.168.3.160
+      - name: Debug set_fact result
+        debug:
+          msg: "Set fact result - ip_address: {{ ip_address }}"
+        delegate_to: 192.168.3.160
 
-    - name: Debug temporary variable
-      debug:
-        msg: "Temporary IP: {{ hostvars['192.168.3.160'].temp_ip }}"
-      delegate_to: 192.168.3.160
+      - name: Debug IP before blocking
+        debug:
+          msg: "IP to block: {{ ip_address }}"
+        delegate_to: 192.168.3.160
 
-    - name: Debug set_fact result
-      debug:
-        msg: "Set fact result - ip_address: {{ hostvars['192.168.3.160'].ip_address }}"
-      delegate_to: 192.168.3.160
+      - name: Block IP using UFW
+        ufw:
+          rule: deny
+          from_ip: "{{ ip_address }}"
+        when: ip_address | length > 0
+        delegate_to: 192.168.3.160
 
-    - name: Debug extracted IP
-      debug:
-        msg: "IP address to block: {{ hostvars['192.168.3.160'].ip_address }}"
-      delegate_to: 192.168.3.160
+      - name: Debug UFW status
+        command: ufw status
+        register: ufw_status
+        changed_when: false
+        delegate_to: 192.168.3.160
 
-    - name: Block IP using UFW
-      ufw:
-        rule: deny
-        from_ip: "{{ hostvars['192.168.3.160'].ip_address }}"
-      delegate_to: 192.168.3.160
-
-    - name: Debug UFW status
-      command: ufw status
-      register: ufw_status
-      changed_when: false
-      delegate_to: 192.168.3.160
-
-    - name: Display UFW status
-      debug:
-        msg: "UFW status: {{ ufw_status.stdout_lines }}"
-      delegate_to: 192.168.3.160
+      - name: Display UFW status
+        debug:
+          msg: "UFW status: {{ ufw_status.stdout_lines }}"
+        delegate_to: 192.168.3.160
