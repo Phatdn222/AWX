@@ -15,26 +15,11 @@
         msg: "Data variable: {{ data | default('not defined') }}"
       delegate_to: 192.168.3.82
 
-    - name: Store and extract IP
-      set_fact:
-        ip_address: "{{ data | default('') }}"
-      delegate_to: 192.168.3.82
-
-    - name: Debug hostvars after set_fact
-      debug:
-        msg: "Hostvars ip_address: {{ hostvars['192.168.3.82'].ip_address }}"
-      delegate_to: 192.168.3.82
-
-    - name: Debug IP before blocking
-      debug:
-        msg: "IP to block: {{ hostvars['192.168.3.82'].ip_address }}"
-      delegate_to: 192.168.3.82
-
     - name: Block IP using UFW
       ufw:
         rule: deny
-        from_ip: "{{ hostvars['192.168.3.82'].ip_address }}"
-      when: hostvars['192.168.3.82'].ip_address | length > 0
+        from_ip: "{{ data | default('') }}"
+      when: data | length > 0
       delegate_to: 192.168.3.82
 
     - name: Debug UFW status
