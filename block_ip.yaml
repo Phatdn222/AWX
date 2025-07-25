@@ -20,14 +20,9 @@
         msg: "Ansible extra vars: {{ ansible_extra_vars | default('not defined') | to_json }}"
       delegate_to: 192.168.3.160
 
-    - name: Debug all job inputs
-      debug:
-        msg: "All job inputs: {{ lookup('vars', 'ansible_playbook_python') | default({}) | combine(vars) | to_json }}"
-      delegate_to: 192.168.3.160
-
     - name: Extract IP from observable
       set_fact:
-        ip_address: "{{ data | default(job_extra_vars.data | default(ansible_extra_vars.data | default(vars.data | default('')))) }}"
+        ip_address: "{{ data | default(job_extra_vars.data | default(ansible_extra_vars.data | default(''))) }}"
       delegate_to: 192.168.3.160
 
     - name: Debug extracted IP
