@@ -7,12 +7,12 @@
   tasks:
     - name: Debug raw input
       debug:
-        msg: "Raw ip_address input: {{ ip_address | default('empty') }}"
+        msg: "Raw extra_vars: {{ extra_vars | to_json }}"
       delegate_to: 192.168.3.160
 
     - name: Extract IP from observable
       set_fact:
-        ip_address: "{{ (ip_address | from_json).data | default(ip_address) if ip_address is string and ip_address | length > 0 and (ip_address | from_json is success) else ip_address | default('') }}"
+        ip_address: "{{ extra_vars.data | default('') }}"
       delegate_to: 192.168.3.160
 
     - name: Debug extracted IP
