@@ -10,6 +10,11 @@
         msg: "All variables: {{ vars | to_json }}"
       delegate_to: 192.168.3.160
 
+    - name: Debug data variable
+      debug:
+        msg: "Data variable: {{ data | default('not defined') }}"
+      delegate_to: 192.168.3.160
+
     - name: Extract IP from observable
       set_fact:
         ip_address: "{{ data | default('') }}"
