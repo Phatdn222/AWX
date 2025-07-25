@@ -20,21 +20,21 @@
         ip_address: "{{ data | default('') }}"
       delegate_to: 192.168.3.82
 
-    - name: Debug set_fact result
+    - name: Debug hostvars after set_fact
       debug:
-        msg: "Set fact result - ip_address: {{ ip_address }}"
+        msg: "Hostvars ip_address: {{ hostvars['192.168.3.82'].ip_address }}"
       delegate_to: 192.168.3.82
 
     - name: Debug IP before blocking
       debug:
-        msg: "IP to block: {{ ip_address }}"
+        msg: "IP to block: {{ hostvars['192.168.3.82'].ip_address }}"
       delegate_to: 192.168.3.82
 
     - name: Block IP using UFW
       ufw:
         rule: deny
-        from_ip: "{{ ip_address }}"
-      when: ip_address | length > 0
+        from_ip: "{{ hostvars['192.168.3.82'].ip_address }}"
+      when: hostvars['192.168.3.82'].ip_address | length > 0
       delegate_to: 192.168.3.82
 
     - name: Debug UFW status
