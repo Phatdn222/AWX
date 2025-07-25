@@ -5,8 +5,15 @@
   become_method: sudo
   become_user: root
   tasks:
+    - name: Check if IP is already blocked
+      command: ufw status
+      register: ufw_status
+      changed_when: false
+      delegate_to: 192.168.3.160
+
     - name: Block IP using UFW
       ufw:
         rule: deny
         from_ip: "{{ ip_address }}"
+      when: "'DENY IN {{ ip_address }}' not in ufw_status.stdout"
       delegate_to: 192.168.3.160
