@@ -5,13 +5,17 @@
   become_method: sudo
   become_user: root
   tasks:
-    - name: Normalize IP address
+    - name: Extract IP from observable
       set_fact:
-        ip_address: "{{ ip_address | replace('[.]', '.') }}"
+        ip_address: "{{ ip_address_input.data | default('') }}"
+      vars:
+        ip_address_input: "{{ ip_address | from_json }}"
+      when: ip_address is string and ip_address | length > 0
       delegate_to: 192.168.3.160
 
     - name: Block IP using UFW
       ufw:
         rule: deny
         from_ip: "{{ ip_address }}"
+      when: ip_address | length > 0
       delegate_to: 192.168.3.160
