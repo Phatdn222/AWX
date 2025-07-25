@@ -5,14 +5,14 @@
   become_method: sudo
   become_user: root
   tasks:
-    - name: Debug raw input
+    - name: Debug all variables
       debug:
-        msg: "Raw extra_vars: {{ extra_vars | to_json }}"
+        msg: "All variables: {{ vars | to_json }}"
       delegate_to: 192.168.3.160
 
     - name: Extract IP from observable
       set_fact:
-        ip_address: "{{ extra_vars.data | default('') }}"
+        ip_address: "{{ data | default('') }}"
       delegate_to: 192.168.3.160
 
     - name: Debug extracted IP
@@ -25,5 +25,5 @@
       ufw:
         rule: deny
         from_ip: "{{ ip_address }}"
-      when: ip_address | length > 0
+      when: ip_address | length > 0 and ip_address is regex('^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$')
       delegate_to: 192.168.3.160
