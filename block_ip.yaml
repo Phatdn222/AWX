@@ -34,14 +34,12 @@
     - name: Debug extracted IP
       debug:
         msg: "IP address to block: {{ hostvars['192.168.3.160'].ip_address }}"
-      when: hostvars['192.168.3.160'].ip_address | length > 0
       delegate_to: 192.168.3.160
 
     - name: Block IP using UFW
       ufw:
         rule: deny
         from_ip: "{{ hostvars['192.168.3.160'].ip_address }}"
-      when: hostvars['192.168.3.160'].ip_address | length > 0
       delegate_to: 192.168.3.160
 
     - name: Debug UFW status
